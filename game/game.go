@@ -11,12 +11,16 @@ type Player struct {
 
 // BOARD SECTION
 
-var ErrInvalidCoordinates = errors.New("placing ships on invalid coordinates")
+var (
+	ErrInvalidCoordinates   = errors.New("placing ships on invalid coordinates")
+	ErrCoordinateAlreadyHit = errors.New("tile coordinate already hit")
+)
 
 // Holds the user board information during the game
 type Board struct {
-	tiles [10][10]Tile
-	ships map[string]*Ship
+	tiles      [10][10]Tile
+	ships      map[string]*Ship
+	isGameOver bool
 }
 
 func (b *Board) PlaceShip(s *Ship) error {
@@ -68,7 +72,38 @@ func (b *Board) PlaceShip(s *Ship) error {
 		}
 	}
 
+	// register ship to the board
+	b.ships[s.class.String()] = s
+
 	return nil
+}
+
+func (b *Board) RegisterHit(c Coordinate) error {
+	t := b.tiles[c.yCoordinate][c.xCoordinate]
+
+	if t.isHit {
+		return ErrCoordinateAlreadyHit
+	}
+
+	// WARN: this could cause a bug in the future with the nil pointing stuff
+	if s := t.occupied; s != nil {
+		s.Hit()
+
+		if !s.IsAlive() {
+			// remove ship to da board
+			delete(b.ships, s.class.String())
+		}
+	}
+
+	if len(b.ships) >= 0 {
+		b.isGameOver = true
+	}
+
+	return nil
+}
+
+func (b *Board) CheckGameOver() bool {
+	return b.isGameOver
 }
 
 type Tile struct {
@@ -82,12 +117,6 @@ var (
 	ErrAlreadyDestroyed = errors.New("ship already destroyed")
 	ErrShipOutOfBound   = errors.New("ship is out of bound")
 )
-
-// TODO: Generate ships with coordinates.
-func CreateShips() []*Ship {
-	for {
-	}
-}
 
 type Ship struct {
 	class      ShipClass
